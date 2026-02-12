@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  FIRST_ADMIN
+  SECOND_ADMIN
+  THIRD_ADMIN
+  FOURTH_ADMIN
+  MAIN_ADMIN
+  CUSTOMER
+}
+
+enum ProductStatus {
+  IN_ADMIN_STOCK
+  ALLOTTED
+  DELIVERED
+  COMPLETED
+}
+
+enum BillingStatus {
+  PENDING
+  CONFIRMED
+}
+
+model User {
+  id               String   @id @default(cuid())
+  name             String
+  email            String   @unique
+  passwordHash     String
+  role             Role
+  twoFactorEnabled Boolean  @default(false)
+  createdAt        DateTime @default(now())
+}
+
+model Customer {
+  id                       String    @id @default(cuid())
+  customerUniqueName       String    @unique
+  legalName                String
+  phone                    String
+  email                    String?   @unique
+  totalGoldInventoryWeight Decimal?  @db.Decimal(12, 3)
+  createdAt                DateTime  @default(now())
+  allotments               Allotment[]
+  confirmations            CustomerConfirmation[]
+  billings                 Billing[]
+  collections              GoldCollection[]
+  payments                 PaymentLog[]
+}
+
+model Product {
+  id               String                 @id @default(cuid())
+  barcodeId        String                 @unique
+  jewelleryType    String
+  purity           String
+  goldWeight       Decimal                @db.Decimal(12, 3)
+  otherMetalWeight Decimal                @db.Decimal(12, 3)
+  stoneWeight      Decimal                @db.Decimal(12, 3)
+  diamondWeight    Decimal                @db.Decimal(12, 3)
+  totalWeight      Decimal                @db.Decimal(12, 3)
+  imageUrl         String?
+  status           ProductStatus          @default(IN_ADMIN_STOCK)
+  createdBy        String
+  createdAt        DateTime               @default(now())
+  allotments       Allotment[]
+  confirmations    CustomerConfirmation[]
+  billings         Billing[]
+}
+
+model Allotment {
+  id             String   @id @default(cuid())
+  productId      String
+  customerId     String
+  allottedBy     String
+  doubleVerified Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  product        Product  @relation(fields: [productId], references: [id])
+  customer       Customer @relation(fields: [customerId], references: [id])
+}
+
+model CustomerConfirmation {
+  id                 String   @id @default(cuid())
+  productId          String
+  customerId         String
+  enteredGoldWeight  Decimal  @db.Decimal(12, 3)
+  enteredPurity      String
+  enteredStoneWeight Decimal  @db.Decimal(12, 3)
+  matched            Boolean
+  confirmedAt        DateTime @default(now())
+  product            Product  @relation(fields: [productId], references: [id])
+  customer           Customer @relation(fields: [customerId], references: [id])
+}
+
+model Billing {
+  id                     String        @id @default(cuid())
+  productId              String
+  customerId             String
+  goldRatePer10gm        Decimal       @db.Decimal(12, 2)
+  makingChargePercentage Decimal       @db.Decimal(5, 2)
+  makingChargeAmount     Decimal       @db.Decimal(12, 2)
+  totalMakingCharge      Decimal       @db.Decimal(12, 2)
+  billingStatus          BillingStatus @default(PENDING)
+  doubleVerified         Boolean       @default(false)
+  createdBy              String
+  product                Product       @relation(fields: [productId], references: [id])
+  customer               Customer      @relation(fields: [customerId], references: [id])
+}
+
+model GoldCollection {
+  id                     String   @id @default(cuid())
+  customerId             String
+  goldWeightReceived     Decimal  @db.Decimal(12, 3)
+  rateApplied            Decimal  @db.Decimal(12, 2)
+  totalValue             Decimal  @db.Decimal(12, 2)
+  confirmedByFourthAdmin Boolean  @default(false)
+  customer               Customer @relation(fields: [customerId], references: [id])
+}
+
+model PaymentLog {
+  id                    String   @id @default(cuid())
+  customerId            String
+  makingChargeReceived  Decimal  @db.Decimal(12, 2)
+  bankReference         String
+  confirmedByThirdAdmin Boolean  @default(false)
+  customer              Customer @relation(fields: [customerId], references: [id])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actionType  String
+  performedBy String
+  timestamp   DateTime @default(now())
+  detailsJson Json
+}
