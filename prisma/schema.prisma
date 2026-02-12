@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  FIRST_ADMIN
+  SECOND_ADMIN
+  THIRD_ADMIN
+  FOURTH_ADMIN
+  MAIN_ADMIN
+  CUSTOMER
+}
+
+enum ProductStatus {
+  IN_ADMIN_STOCK
+  ALLOTTED
+  DELIVERED
+  COMPLETED
+}
+
+enum BillingStatus {
+  PENDING
+  CONFIRMED
+}
+
+model User {
+  id                String   @id @default(cuid())
+  name              String
+  email             String   @unique
+  passwordHash      String
+  role              Role
+  twoFactorEnabled  Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  auditLogs         AuditLog[]
+}
+
+model Customer {
+  id                       String   @id @default(cuid())
+  customerUniqueName       String   @unique
+  legalName                String
+  phone                    String
+  email                    String   @unique
+  totalGoldInventoryWeight Float    @default(0)
+  createdAt                DateTime @default(now())
+  allotments               Allotment[]
+  confirmations            CustomerConfirmation[]
+  billing                  Billing[]
+  goldCollections          GoldCollection[]
+  paymentLogs              PaymentLog[]
+}
+
+model Product {
+  id               String   @id @default(cuid())
+  barcodeId        String   @unique
+  jewelleryType    String
+  purity           String
+  goldWeight       Float
+  otherMetalWeight Float
+  stoneWeight      Float
+  diamondWeight    Float
+  totalWeight      Float
+  imageUrl         String?
+  status           ProductStatus @default(IN_ADMIN_STOCK)
+  createdBy        String
+  createdAt        DateTime @default(now())
+  allotments       Allotment[]
+  confirmations    CustomerConfirmation[]
+  billing          Billing[]
+}
+
+model Allotment {
+  id             String   @id @default(cuid())
+  productId      String   @unique
+  customerId     String
+  allottedBy     String
+  doubleVerified Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  product        Product  @relation(fields: [productId], references: [id])
+  customer       Customer @relation(fields: [customerId], references: [id])
+}
+
+model CustomerConfirmation {
+  id                String   @id @default(cuid())
+  productId         String   @unique
+  customerId        String
+  enteredGoldWeight Float
+  enteredPurity     String
+  enteredStoneWeight Float
+  matched           Boolean
+  confirmedAt       DateTime @default(now())
+  product           Product  @relation(fields: [productId], references: [id])
+  customer          Customer @relation(fields: [customerId], references: [id])
+}
+
+model Billing {
+  id                     String   @id @default(cuid())
+  productId              String   @unique
+  customerId             String
+  goldRatePer10gm        Float
+  makingChargePercentage Float
+  makingChargeAmount     Float
+  totalMakingCharge      Float
+  billingStatus          BillingStatus @default(PENDING)
+  doubleVerified         Boolean @default(false)
+  createdBy              String
+  product                Product  @relation(fields: [productId], references: [id])
+  customer               Customer @relation(fields: [customerId], references: [id])
+}
+
+model GoldCollection {
+  id                      String   @id @default(cuid())
+  customerId              String
+  goldWeightReceived      Float
+  rateApplied             Float
+  totalValue              Float
+  confirmedByFourthAdmin  Boolean  @default(false)
+  customer                Customer @relation(fields: [customerId], references: [id])
+}
+
+model PaymentLog {
+  id                    String   @id @default(cuid())
+  customerId            String
+  makingChargeReceived  Float
+  bankReference         String
+  confirmedByThirdAdmin Boolean @default(false)
+  customer              Customer @relation(fields: [customerId], references: [id])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actionType  String
+  performedBy String
+  timestamp   DateTime @default(now())
+  detailsJson Json
+  user        User?    @relation(fields: [performedBy], references: [id])
+
+  @@index([actionType, timestamp])
+}
